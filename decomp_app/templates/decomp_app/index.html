@@ -1,0 +1,307 @@
+{% extends 'decomp_app/base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="text-center">Saisie de la matrice</h2>
+        </div>
+        <div class="card-body">
+            <form method="post" action="{% url 'decomp_app:result' %}" id="matrix-form">
+                {% csrf_token %}
+                {{ form.matrix }}
+                {{ form.vector_b }}
+                
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <label for="{{ form.rows.id_for_label }}" class="form-label">Nombre de lignes</label>
+                        <input type="number" class="form-control" id="{{ form.rows.id_for_label }}" name="rows" min="2" max="10" value="6" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="{{ form.cols.id_for_label }}" class="form-label">Nombre de colonnes</label>
+                        <input type="number" class="form-control" id="{{ form.cols.id_for_label }}" name="cols" min="2" max="10" value="6" required>
+                    </div>
+                </div>
+
+                <div id="matrix-container" class="mb-4">
+                    <!-- La grille de la matrice sera générée ici -->
+                </div>
+
+                <div id="vector-b-container" class="mb-4" style="display: none;">
+                    <h4>Vecteur b</h4>
+                    <div class="vector-grid">
+                        <!-- La grille du vecteur b sera générée ici -->
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="{{ form.decomposition.id_for_label }}" class="form-label">Méthode de décomposition</label>
+                    {{ form.decomposition }}
+                    <div class="form-text">
+                        <strong>LU:</strong> Décompose une matrice carrée en matrices triangulaires inférieure et supérieure.<br>
+                        <strong>QR:</strong> Décompose une matrice en produit d'une matrice orthogonale et d'une matrice triangulaire supérieure.<br>
+                        <strong>Résoudre système linéaire:</strong> Résout le système Ax = b en utilisant la décomposition LU.
+                    </div>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary">Décomposer</button>
+                    <button type="button" class="btn btn-secondary" id="reset-button">Réinitialiser</button>
+                    <button type="button" class="btn btn-info" id="fill-exercise-button">Remplir matrice de l'exercice</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+    // Valeurs de la matrice de l'exercice
+    const exerciseMatrix = [
+        [2, 3, 1, 5, 7, 4],
+        [4, 7, 3, 9, 10, 6],
+        [6, 8, 5, 11, 13, 7],
+        [3, 5, 2, 6, 8, 4],
+        [5, 9, 4, 10, 12, 6],
+        [7, 11, 6, 13, 15, 8]
+    ];
+
+    // Valeurs du vecteur b de l'exercice
+    const exerciseVectorB = [1, 2, 3, 4, 5, 6];
+
+    function createMatrixGrid(rows, cols) {
+        const container = document.getElementById('matrix-container');
+        container.innerHTML = '';
+        
+        const table = document.createElement('table');
+        table.className = 'matrix-grid';
+        
+        for (let i = 0; i < rows; i++) {
+            const tr = document.createElement('tr');
+            for (let j = 0; j < cols; j++) {
+                const td = document.createElement('td');
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.step = 'any';
+                input.className = 'form-control matrix-input';
+                input.required = true;
+                input.dataset.row = i;
+                input.dataset.col = j;
+                input.value = ''; // Champs vides par défaut
+                td.appendChild(input);
+                tr.appendChild(td);
+            }
+            table.appendChild(tr);
+        }
+        
+        container.appendChild(table);
+    }
+
+    function createVectorBGrid(rows) {
+        const container = document.getElementById('vector-b-container');
+        container.style.display = 'block';
+        container.innerHTML = '';
+        
+        const table = document.createElement('table');
+        table.className = 'vector-grid';
+        
+        for (let i = 0; i < rows; i++) {
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.step = 'any';
+            input.className = 'form-control vector-input';
+            input.required = true;
+            input.dataset.row = i;
+            input.value = ''; // Champs vides par défaut
+            td.appendChild(input);
+            tr.appendChild(td);
+            table.appendChild(tr);
+        }
+        
+        container.appendChild(table);
+    }
+
+    function fillExerciseMatrix() {
+        // Mettre les dimensions à 6x6
+        document.getElementById('{{ form.rows.id_for_label }}').value = 6;
+        document.getElementById('{{ form.cols.id_for_label }}').value = 6;
+        
+        // Créer la grille 6x6
+        const container = document.getElementById('matrix-container');
+        container.innerHTML = '';
+        
+        const table = document.createElement('table');
+        table.className = 'matrix-grid';
+        
+        for (let i = 0; i < 6; i++) {
+            const tr = document.createElement('tr');
+            for (let j = 0; j < 6; j++) {
+                const td = document.createElement('td');
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.step = 'any';
+                input.className = 'form-control matrix-input';
+                input.required = true;
+                input.dataset.row = i;
+                input.dataset.col = j;
+                input.value = exerciseMatrix[i][j]; // Remplir avec les valeurs de l'exercice
+                td.appendChild(input);
+                tr.appendChild(td);
+            }
+            table.appendChild(tr);
+        }
+        
+        container.appendChild(table);
+        
+        // Créer et remplir le vecteur b seulement si on est en mode résolution de système
+        const currentMethod = document.getElementById('{{ form.decomposition.id_for_label }}').value;
+        if (currentMethod === 'solve') {
+            createVectorBGrid(6);
+            const vectorInputs = document.querySelectorAll('.vector-input');
+            vectorInputs.forEach((input, index) => {
+                input.value = exerciseVectorB[index];
+            });
+            updateVectorBData();
+        }
+        
+        // Mettre à jour le champ caché de la matrice
+        updateMatrixData();
+    }
+
+    function resetMatrix() {
+        // Récupérer les dimensions actuelles
+        const rows = parseInt(document.getElementById('{{ form.rows.id_for_label }}').value);
+        const cols = parseInt(document.getElementById('{{ form.cols.id_for_label }}').value);
+        
+        // Vider tous les champs de la matrice
+        for (let i = 0; i < rows; i++) {
+            for (let j = 0; j < cols; j++) {
+                const input = document.querySelector(`input[data-row="${i}"][data-col="${j}"]`);
+                if (input) {
+                    input.value = '';
+                }
+            }
+        }
+        
+        // Vider tous les champs du vecteur b
+        const vectorInputs = document.querySelectorAll('.vector-input');
+        vectorInputs.forEach(input => {
+            input.value = '';
+        });
+        
+        // Mettre à jour les champs cachés avec des zéros
+        const emptyMatrix = Array(rows).fill().map(() => Array(cols).fill(0));
+        const matrixString = emptyMatrix.map(row => row.join(',')).join(';');
+        document.getElementById('{{ form.matrix.id_for_label }}').value = matrixString;
+        
+        const emptyVector = Array(rows).fill(0);
+        const vectorString = emptyVector.join(',');
+        document.getElementById('{{ form.vector_b.id_for_label }}').value = vectorString;
+    }
+
+    function updateMatrixData() {
+        const rows = parseInt(document.getElementById('{{ form.rows.id_for_label }}').value);
+        const cols = parseInt(document.getElementById('{{ form.cols.id_for_label }}').value);
+        const matrixData = [];
+        
+        for (let i = 0; i < rows; i++) {
+            const rowData = [];
+            for (let j = 0; j < cols; j++) {
+                const input = document.querySelector(`input[data-row="${i}"][data-col="${j}"]`);
+                rowData.push(parseFloat(input.value) || 0);
+            }
+            matrixData.push(rowData);
+        }
+        
+        const matrixString = matrixData.map(row => row.join(',')).join(';');
+        document.getElementById('{{ form.matrix.id_for_label }}').value = matrixString;
+    }
+
+    function updateVectorBData() {
+        const rows = parseInt(document.getElementById('{{ form.rows.id_for_label }}').value);
+        const vectorData = [];
+        
+        for (let i = 0; i < rows; i++) {
+            const input = document.querySelector(`.vector-input[data-row="${i}"]`);
+            vectorData.push(parseFloat(input.value) || 0);
+        }
+        
+        const vectorString = vectorData.join(',');
+        document.getElementById('{{ form.vector_b.id_for_label }}').value = vectorString;
+    }
+
+    // Gestionnaire d'événements pour les changements de dimensions
+    document.getElementById('{{ form.rows.id_for_label }}').addEventListener('change', function() {
+        const rows = parseInt(this.value);
+        const cols = parseInt(document.getElementById('{{ form.cols.id_for_label }}').value);
+        createMatrixGrid(rows, cols);
+        createVectorBGrid(rows);
+    });
+
+    document.getElementById('{{ form.cols.id_for_label }}').addEventListener('change', function() {
+        const rows = parseInt(document.getElementById('{{ form.rows.id_for_label }}').value);
+        const cols = parseInt(this.value);
+        createMatrixGrid(rows, cols);
+    });
+
+    // Gestionnaire pour le changement de méthode de décomposition
+    document.getElementById('{{ form.decomposition.id_for_label }}').addEventListener('change', function() {
+        const vectorContainer = document.getElementById('vector-b-container');
+        if (this.value === 'solve') {
+            vectorContainer.style.display = 'block';
+            const rows = parseInt(document.getElementById('{{ form.rows.id_for_label }}').value);
+            createVectorBGrid(rows);
+        } else {
+            vectorContainer.style.display = 'none';
+        }
+    });
+
+    // Gestionnaire pour le bouton Réinitialiser
+    document.getElementById('reset-button').addEventListener('click', resetMatrix);
+
+    // Gestionnaire pour le bouton Remplir matrice de l'exercice
+    document.getElementById('fill-exercise-button').addEventListener('click', fillExerciseMatrix);
+
+    // Gestionnaire de soumission du formulaire
+    document.getElementById('matrix-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        updateMatrixData();
+        if (document.getElementById('{{ form.decomposition.id_for_label }}').value === 'solve') {
+            updateVectorBData();
+        }
+        this.submit();
+    });
+
+    // Créer la grille initiale au chargement de la page (3x3 vide)
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('{{ form.rows.id_for_label }}').value = 3;
+        document.getElementById('{{ form.cols.id_for_label }}').value = 3;
+        createMatrixGrid(3, 3);
+        updateMatrixData();
+    });
+</script>
+
+<style>
+    .matrix-grid, .vector-grid {
+        border-collapse: separate;
+        border-spacing: 5px;
+        margin: 0 auto;
+    }
+
+    .matrix-input, .vector-input {
+        width: 60px;
+        text-align: center;
+    }
+
+    @media (max-width: 768px) {
+        .matrix-input, .vector-input {
+            width: 40px;
+            padding: 0.25rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% endblock %}

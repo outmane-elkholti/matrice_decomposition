@@ -1,0 +1,229 @@
+{% extends 'decomp_app/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card mb-4">
+            <div class="card-header text-center">
+                <h2>Résultat de la décomposition {{ decomp_method }}</h2>
+            </div>
+            <div class="card-body">
+                <h3>Matrice originale</h3>
+                <div class="matrix-display">
+                    <div id="original-matrix"></div>
+                </div>
+                
+                {% if decomp_method == 'Résolution système linéaire' %}
+                    <h3>Solution du système Ax = b</h3>
+                    <div class="matrix-display">
+                        <div id="solution-vector"></div>
+                    </div>
+                {% else %}
+                    <h3>Décomposition {{ decomp_method }}</h3>
+                    {% if decomp_method == 'LU' %}
+                        <div class="formula">A = L × U</div>
+                        <div class="row">
+                            <div class="col">
+                                <h4>L (triangulaire inférieure)</h4>
+                                <div class="matrix-display">
+                                    <div id="L-matrix"></div>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <h4>U (triangulaire supérieure)</h4>
+                                <div class="matrix-display">
+                                    <div id="U-matrix"></div>
+                                </div>
+                            </div>
+                        </div>
+                    {% elif decomp_method == 'QR' %}
+                        <div class="formula">A = Q × R</div>
+                        <div class="row">
+                            <div class="col">
+                                <h4>Q (orthogonale)</h4>
+                                <div class="matrix-display">
+                                    <div id="Q-matrix"></div>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <h4>R (triangulaire supérieure)</h4>
+                                <div class="matrix-display">
+                                    <div id="R-matrix"></div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                    
+                    <h3>Vérification</h3>
+                    <p>Produit des matrices de la décomposition:</p>
+                    <div class="matrix-display">
+                        <div id="verification-matrix"></div>
+                    </div>
+                {% endif %}
+                
+                <div class="explanation">
+                    <h3>Explication</h3>
+                    <p>{{ explanation }}</p>
+                </div>
+                
+                <div class="d-grid">
+                    <a href="{% url 'decomp_app:index' %}" class="btn btn-primary">Nouvelle décomposition</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.matrix-display {
+    display: inline-block;
+    position: relative;
+    padding: 20px 50px;
+    margin: 20px 0;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    overflow-x: auto;
+}
+
+.matrix-display::before,
+.matrix-display::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 25px;
+    border: 2px solid #007bff;
+    border-radius: 4px;
+}
+
+.matrix-display::before {
+    left: 0;
+    border-right: none;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.matrix-display::after {
+    right: 0;
+    border-left: none;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.matrix-row {
+    display: flex;
+    justify-content: center;
+    margin: 8px 0;
+}
+
+.matrix-cell {
+    width: 100px;
+    min-width: 100px;
+    height: 45px;
+    margin: 0 5px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Courier New', monospace;
+    font-size: 1.1em;
+    color: #333;
+    padding: 0 5px;
+}
+
+.formula {
+    text-align: center;
+    font-size: 1.5em;
+    margin: 20px 0;
+    font-family: 'Times New Roman', serif;
+    color: #007bff;
+}
+
+h3, h4 {
+    color: #2c3e50;
+    margin-top: 20px;
+}
+
+.explanation {
+    margin-top: 30px;
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #007bff;
+}
+</style>
+
+{% block extra_js %}
+<script>
+    function formatNumber(num) {
+        return parseFloat(num).toFixed(4).replace(/\.?0+$/, '');
+    }
+
+    function displayMatrix(elementId, matrix) {
+        const container = document.getElementById(elementId);
+        container.innerHTML = '';
+        
+        matrix.forEach((row, i) => {
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'matrix-row';
+            
+            row.forEach((cell, j) => {
+                const cellDiv = document.createElement('div');
+                cellDiv.className = 'matrix-cell';
+                cellDiv.textContent = formatNumber(cell);
+                rowDiv.appendChild(cellDiv);
+            });
+            
+            container.appendChild(rowDiv);
+        });
+    }
+
+    function displayVector(elementId, vector) {
+        const container = document.getElementById(elementId);
+        container.innerHTML = '';
+        
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'matrix-row';
+        
+        vector.forEach((value, i) => {
+            const cellDiv = document.createElement('div');
+            cellDiv.className = 'matrix-cell';
+            cellDiv.textContent = formatNumber(value);
+            rowDiv.appendChild(cellDiv);
+        });
+        
+        container.appendChild(rowDiv);
+    }
+
+    // Affichage des matrices
+    document.addEventListener('DOMContentLoaded', function() {
+        // Afficher la matrice originale
+        const originalMatrix = {{ original_json|safe }};
+        displayMatrix('original-matrix', originalMatrix);
+        
+        // Afficher les matrices de la décomposition ou la solution
+        {% if decomp_method == 'Résolution système linéaire' %}
+            const solution = JSON.parse('{{ result.solution|safe }}');
+            displayVector('solution-vector', solution);
+        {% elif decomp_method == 'LU' %}
+            const L = JSON.parse('{{ result.L|safe }}');
+            const U = JSON.parse('{{ result.U|safe }}');
+            displayMatrix('L-matrix', L);
+            displayMatrix('U-matrix', U);
+        {% elif decomp_method == 'QR' %}
+            const Q = JSON.parse('{{ result.Q|safe }}');
+            const R = JSON.parse('{{ result.R|safe }}');
+            displayMatrix('Q-matrix', Q);
+            displayMatrix('R-matrix', R);
+        {% endif %}
+        
+        // Afficher la matrice de vérification si nécessaire
+        {% if verification_json %}
+            const verificationMatrix = {{ verification_json|safe }};
+            displayMatrix('verification-matrix', verificationMatrix);
+        {% endif %}
+    });
+</script>
+{% endblock %}
+
+{% endblock %}
