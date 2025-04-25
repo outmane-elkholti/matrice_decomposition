@@ -237,7 +237,15 @@
         const rows = parseInt(this.value);
         const cols = parseInt(document.getElementById('{{ form.cols.id_for_label }}').value);
         createMatrixGrid(rows, cols);
-        createVectorBGrid(rows);
+        
+        // Créer le vecteur b seulement si on est en mode résolution de système
+        const currentMethod = document.getElementById('{{ form.decomposition.id_for_label }}').value;
+        if (currentMethod === 'solve') {
+            createVectorBGrid(rows);
+        } else {
+            // Cacher le conteneur du vecteur b si on n'est pas en mode résolution
+            document.getElementById('vector-b-container').style.display = 'none';
+        }
     });
 
     document.getElementById('{{ form.cols.id_for_label }}').addEventListener('change', function() {
@@ -255,6 +263,8 @@
             createVectorBGrid(rows);
         } else {
             vectorContainer.style.display = 'none';
+            // Réinitialiser le champ vector_b
+            document.getElementById('{{ form.vector_b.id_for_label }}').value = '';
         }
     });
 
